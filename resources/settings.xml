@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<settings>
+    <category label="General">
+		<setting label="Number of widget items to return" type="slider" id="returnLimit" default="20" range="1,1,50" option="int" />
+		<setting label="Number of habits to consider" type="slider" id="habitLimit" default="50" range="1,1,200" option="int" />
+		<setting label="Number of hours 'Now' is +/-" type="slider" id="hoursNow" default="2" range="1,1,8" option="int" />
+		<setting label="Number of days history to consider..." type="lsep"/>
+		<setting label="...this weekday at this time" type="slider" id="dayLimit" default="28" range="7,7,56" option="int" />
+		<setting label="...every day at this time" type="slider" id="timeLimit" default="7" range="0,1,56" option="int" />
+		<setting label="...every day" type="slider" id="allLimit" default="7" range="0,1,56" option="int" />
+		<setting label="Recently Added additional score percentage" type="lsep"/>
+ 		<setting label="This weekday at this time" type="slider" id="dayRecent" default="100" range="0,1,100" option="int" />
+ 		<setting label="Every day at this time" type="slider" id="timeRecent" default="50" range="0,1,100" option="int" />
+ 		<setting label="Every day" type="slider" id="allRecent" default="25" range="0,1,100" option="int" />
+		<setting label="Get additional information from the Movie DB" type="bool" id="getTMDB" default="false"/>
+	</category>
+	<category label="Movies">
+		<!--setting label="Rank weekday at this time habits by date" type="bool" id="movieDayOrder" default="false"/>
+		<setting label="Rank every day at this time habits by date" type="bool" id="movieTimeOrder" default="false"/>
+		<setting label="Rank every day habits by date" type="bool" id="movieAllOrder" default="false"/-->
+		<setting label="Weighting" type="lsep"/>
+ 		<setting label="Genre" type="slider" id="movieGenre" default="70" range="0,1,100" option="int" />
+ 		<setting label="Actor" type="slider" id="movieActor" default="60" range="0,1,100" option="int" />
+ 		<setting label="Director" type="slider" id="movieDirector" default="50" range="0,1,100" option="int" />
+ 		<setting label="Writer" type="slider" id="movieWriter" default="40" range="0,1,100" option="int" />
+ 		<setting label="Tag" type="slider" id="movieTag" default="60" range="0,1,100" option="int" />
+ 		<setting label="Studio" type="slider" id="movieStudio" default="30" range="0,1,100" option="int" />
+ 		<setting label="Rating" type="slider" id="movieRating" default="30" range="0,1,100" option="int" />
+ 		<setting label="(The Movie DB) Keywords" type="slider" id="movieKeyword" default="15" range="0,1,100" option="int" />
+ 		<setting label="(The Movie DB) Related" type="slider" id="movieRelated" default="15" range="0,1,100" option="int" />
+	</category>
+	<category label="Episodes">
+		<!--setting label="Rank weekday at this time habits by date" type="bool" id="tvDayOrder" default="false"/>
+		<setting label="Rank every day at this time habits by date" type="bool" id="tvTimeOrder" default="false"/>
+		<setting label="Rank every day habits by date" type="bool" id="tvAllOrder" default="false"/-->
+		<setting label="Weighting" type="lsep"/>
+ 		<setting label="Genre" type="slider" id="tvGenre" default="70" range="0,1,100" option="int" />
+ 		<setting label="Actor" type="slider" id="tvActor" default="60" range="0,1,100" option="int" />
+ 		<setting label="Tag" type="slider" id="tvTag" default="60" range="0,1,100" option="int" />
+ 		<setting label="Studio" type="slider" id="tvStudio" default="30" range="0,1,100" option="int" />
+ 		<setting label="Rating" type="slider" id="tvRating" default="30" range="0,1,100" option="int" />
+ 		<setting label="(The Movie DB) Keywords" type="slider" id="tvKeyword" default="15" range="0,1,100" option="int" />
+ 		<setting label="(The Movie DB) Related" type="slider" id="tvRelated" default="15" range="0,1,100" option="int" />
+	</category>
+	<category label="Albums">
+		<!--setting label="Rank weekday at this time habits by date" type="bool" id="albumDayOrder" default="false"/>
+		<setting label="Rank every day at this time habits by date" type="bool" id="albumTimeOrder" default="false"/>
+		<setting label="Rank every day habits by date" type="bool" id="albumAllOrder" default="false"/-->
+		<setting label="Weighting" type="lsep"/>
+ 		<setting label="Artist" type="slider" id="albumArtist" default="60" range="0,1,100" option="int" />
+ 		<setting label="Style" type="slider" id="albumStyle" default="70" range="0,1,100" option="int" />
+ 		<setting label="Theme" type="slider" id="albumTheme" default="60" range="0,1,100" option="int" />
+ 		<setting label="Genre" type="slider" id="albumGenre" default="60" range="0,1,100" option="int" />
+ 		<setting label="Mood" type="slider" id="albumMood" default="60" range="0,1,100" option="int" />
+ 		<setting label="Label" type="slider" id="albumLabel" default="30" range="0,1,100" option="int" />
+	</category>
+	<category label="PVR">
+		<!--setting label="Rank weekday at this time habits by date" type="bool" id="pvrDayOrder" default="false"/>
+		<setting label="Rank every day at this time habits by date" type="bool" id="pvrTimeOrder" default="false"/>
+		<setting label="Rank every day habits by date" type="bool" id="pvrAllOrder" default="false"/-->
+		<setting label="Weighting" type="lsep"/>
+ 		<setting label="Genre" type="slider" id="pvrGenre" default="70" range="0,1,100" option="int" />
+ 		<setting label="Channel" type="slider" id="pvrChannel" default="40" range="0,1,100" option="int" />
+	</category>
+</settings>

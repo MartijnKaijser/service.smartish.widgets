@@ -180,66 +180,67 @@ class Main:
         self.connectionRead = sql.connect( True )
         count = 0
         while not xbmc.abortRequested:
-            count += 1
-            if count >= 60 or self.movieWidget is None or self.episodeWidget is None or self.albumWidget is None or self.pvrWidget is None:
-                nextWidget = self._getNextWidget()
-                if nextWidget is not None:
-                    log( "### Starting to get widget " + nextWidget )
-                    # If live tv is playing, call the mediaStarted function in case channel has changed
-                    if self.playingLiveTV:
-                        self.mediaStarted( self.connectionRead )
+            if xbmc.getCondVisibility( "Skin.HasSetting(enable.smartish.widgets)" ):
+                count += 1
+                if count >= 60 or self.movieWidget is None or self.episodeWidget is None or self.albumWidget is None or self.pvrWidget is None:
+                    nextWidget = self._getNextWidget()
+                    if nextWidget is not None:
+                        log( "### Starting to get widget " + nextWidget )
+                        # If live tv is playing, call the mediaStarted function in case channel has changed
+                        if self.playingLiveTV:
+                            self.mediaStarted( self.connectionRead )
+                            
+                        # Get the users habits out of the database
+                        habits, freshness = sql.getFromDatabase( self.connectionRead, nextWidget )
                         
-                    # Get the users habits out of the database
-                    habits, freshness = sql.getFromDatabase( self.connectionRead, nextWidget )
-                    
-                    # Pause briefly, and again check that abortRequested hasn't been called
-                    xbmc.sleep( 100 )
-                    if xbmc.abortRequested:
-                        return
+                        # Pause briefly, and again check that abortRequested hasn't been called
+                        xbmc.sleep( 100 )
+                        if xbmc.abortRequested:
+                            return
+                            
+                        # Get all the media items that match the users habits
+                        weighted, items = library.getMedia( nextWidget, habits, freshness )
                         
-                    # Get all the media items that match the users habits
-                    weighted, items = library.getMedia( nextWidget, habits, freshness )
-                    
-                    # Pause briefly, and again check that abortRequested hasn't been called
-                    xbmc.sleep( 100 )
-                    if xbmc.abortRequested:
-                        return
+                        # Pause briefly, and again check that abortRequested hasn't been called
+                        xbmc.sleep( 100 )
+                        if xbmc.abortRequested:
+                            return
+                            
+                        # Generate the widgets
+                        if weighted is not None:
+                            listitems = library.buildWidget( nextWidget, weighted, items )
+                        else:
+                            listitems = []
                         
-                    # Generate the widgets
-                    if weighted is not None:
-                        listitems = library.buildWidget( nextWidget, weighted, items )
-                    else:
-                        listitems = []
+                        # Save the widget
+                        if nextWidget == "movie":
+                            log( "### Saving movie widget" )
+                            self.movieWidget = listitems
+                            self.movieLastUpdated = strftime( "%Y%m%d%H%M%S",gmtime() )
+                            self.WINDOW.setProperty( "smartish.movies", self.movieLastUpdated )
+                        elif nextWidget == "episode":
+                            log( "### Saving episode widget" )
+                            self.episodeWidget = listitems
+                            self.episodeLastUpdated = strftime( "%Y%m%d%H%M%S",gmtime() )
+                            self.WINDOW.setProperty( "smartish.episodes", self.episodeLastUpdated )
+                        elif nextWidget == "pvr":
+                            log( "### Saving PVR widget" )
+                            self.pvrWidget = listitems
+                            self.pvrLastUpdated = strftime( "%Y%m%d%H%M%S",gmtime() )
+                            self.WINDOW.setProperty( "smartish.pvr", self.pvrLastUpdated )                        
+                        elif nextWidget == "album":
+                            log( "### Saving album widget" )
+                            self.albumWidget = listitems
+                            self.albumLastUpdated = strftime( "%Y%m%d%H%M%S",gmtime() )
+                            self.WINDOW.setProperty( "smartish.albums", self.albumLastUpdated )
                     
-                    # Save the widget
-                    if nextWidget == "movie":
-                        log( "### Saving movie widget" )
-                        self.movieWidget = listitems
-                        self.movieLastUpdated = strftime( "%Y%m%d%H%M%S",gmtime() )
-                        self.WINDOW.setProperty( "smartish.movies", self.movieLastUpdated )
-                    elif nextWidget == "episode":
-                        log( "### Saving episode widget" )
-                        self.episodeWidget = listitems
-                        self.episodeLastUpdated = strftime( "%Y%m%d%H%M%S",gmtime() )
-                        self.WINDOW.setProperty( "smartish.episodes", self.episodeLastUpdated )
-                    elif nextWidget == "pvr":
-                        log( "### Saving PVR widget" )
-                        self.pvrWidget = listitems
-                        self.pvrLastUpdated = strftime( "%Y%m%d%H%M%S",gmtime() )
-                        self.WINDOW.setProperty( "smartish.pvr", self.pvrLastUpdated )                        
-                    elif nextWidget == "album":
-                        log( "### Saving album widget" )
-                        self.albumWidget = listitems
-                        self.albumLastUpdated = strftime( "%Y%m%d%H%M%S",gmtime() )
-                        self.WINDOW.setProperty( "smartish.albums", self.albumLastUpdated )
-                
-                # Reset counter and update widget type
-                count = 0
-                
-                # If no media playing, clear last played
-                if not xbmc.Player().isPlaying():
-                    library.lastplayedType = None
-                    library.lastplayedID = None
+                    # Reset counter and update widget type
+                    count = 0
+                    
+                    # If no media playing, clear last played
+                    if not xbmc.Player().isPlaying():
+                        library.lastplayedType = None
+                        library.lastplayedID = None
                     
             xbmc.sleep( 1000 )
             

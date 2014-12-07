@@ -277,7 +277,6 @@ class Main:
             
             json_query = simplejson.loads(json_query)
             if json_query.has_key( 'result' ):
-                log( repr( json_query[ "result" ] ) )
                 type = json_query[ "result" ][ "item" ][ "type" ]
                 if type == "episode":
                     self.episode( json_query[ "result" ][ "item" ] )
@@ -310,8 +309,6 @@ class Main:
         
     def movie( self, json_query ):
         # This function extracts the details we want to save from a movie, and sends them to the addToDatabase function
-        
-        log( repr( json_query ) )
         
         # First, time stamps (so all items have identical time stamp)
         dateandtime = str( datetime.now() )
@@ -446,7 +443,6 @@ class Main:
         sql.addToDatabase( self.connectionWrite, dateandtime, time, day, "episode", "special", "playedmedia" )
         
     def recordedtv( self, json_query ):
-        log( repr( json_query ) )
         # This function extracts the details we want to save from a tv show episode, and sends them to the addToDatabase function
         
         # First, time stamps (so all items have identical time stamp)
@@ -521,7 +517,6 @@ class Main:
         
     def song( self, json_query ):
         # This function extracts the details we want to save from a song, and sends them to the addToDatabase function
-        log( "Local function for parsing playing song" )
         
         # First, time stamps (so all items have identical time stamp)
         dateandtime = str( datetime.now() )
@@ -529,48 +524,35 @@ class Main:
         day = datetime.today().weekday()
         
         # Now get details of the album
-        log( "Getting album details" )
         album_query = xbmc.executeJSONRPC('{"jsonrpc": "2.0", "method": "AudioLibrary.GetAlbumDetails", "params": {"albumid": %s, "properties": [ "title", "description", "artist", "genre", "theme", "mood", "style", "type", "albumlabel", "rating", "year", "musicbrainzalbumid", "musicbrainzalbumartistid", "fanart", "thumbnail", "playcount", "genreid", "artistid", "displayartist" ]}, "id": 1}' % json_query[ "albumid" ] )
-        log( "Got album details" )
         album_query = unicode(album_query, 'utf-8', errors='ignore')
         album_query = simplejson.loads(album_query)
         album_query = album_query[ "result" ][ "albumdetails" ]
         
         # Check album has changed
         if library.lastplayedType == "album" and library.lastplayedID == album_query[ "albumid" ]:
-            log( "### NOT updating album info" )
             return
-            
-        log( "### Updating album info" )
         
         # Save album, so we only update data on album change
         library.lastplayedType = "album"
         library.lastplayedID = album_query[ "albumid" ]
         self.albumLastUpdated = 0
-
-        log( repr( album_query ) )
         
         for artist in album_query[ "artist" ]:
-            log( artist )
             sql.addToDatabase( self.connectionWrite, dateandtime, time, day, "album", "artist", artist )
         
         for style in album_query[ "style" ]:
-            log( style )
             sql.addToDatabase( self.connectionWrite, dateandtime, time, day, "album", "style", style )
         
         for theme in album_query[ "theme" ]:
-            log( theme )
             sql.addToDatabase( self.connectionWrite, dateandtime, time, day, "album", "theme", theme )
         
-        log( album_query[ "label" ] )
         sql.addToDatabase( self.connectionWrite, dateandtime, time, day, "album", "label", album_query[ "label" ] )
         
         for genre in album_query[ "genre" ]:
-            log( genre )
             sql.addToDatabase( self.connectionWrite, dateandtime, time, day, "album", "genre", genre )
         
         for mood in album_query[ "mood" ]:
-            log( mood )
             sql.addToDatabase( self.connectionWrite, dateandtime, time, day, "album", "mood", mood )        
         
 class Widgets_Player(xbmc.Player):

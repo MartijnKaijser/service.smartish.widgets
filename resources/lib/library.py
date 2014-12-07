@@ -687,8 +687,8 @@ def buildWidget( mediaType, weighted, items ):
         if mediaType == "movie":
             for movieID in weighted[ key ]:
                 log( "(%s) %s" %( key, items[ movieID ][ "title" ] ) )
-                for score in movieScores[ movieID ]:
-                    log( " -- %s" %( score ) )
+                #for score in movieScores[ movieID ]:
+                #    log( " -- %s" %( score ) )
                 count += 1
                 movie_widget( items[ movieID ], full_liz, count )
                 if count >= 50:

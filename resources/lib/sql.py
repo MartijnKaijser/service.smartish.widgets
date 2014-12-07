@@ -157,12 +157,10 @@ def getFromDatabase( connection, type ):
     freshness = [ 0, 0, 0 ]
             
     # Get weekdays at this time
-    log( repr( __addon__.getSetting( "dayLimit" ) ) )
     for x in range( 0, int( __addon__.getSetting( "dayLimit" ) ) + 1, 7 ):
         datetimeStart = str( datetime.now() - timedelta( days = x, hours = int( __addon__.getSetting( "hoursNow" ) ) ) )
         datetimeEnd = str( datetime.now() - timedelta( days = x, hours = -int( __addon__.getSetting( "hoursNow" ) ) ) )
         timeQuery = "datetime BETWEEN '%s' AND '%s'" %( str( datetime.now() - timedelta( days = x, hours = int( __addon__.getSetting( "hoursNow" ) ) ) ), str( datetime.now() - timedelta( days = x, hours = -int( __addon__.getSetting( "hoursNow" ) ) ) ) )
-        log( "%d: %s - %s" %( x, datetimeStart, datetimeEnd ) )
         sucess = False
         while sucess == False:
             try:
@@ -177,12 +175,10 @@ def getFromDatabase( connection, type ):
         freshness[ 2 ] += moreFreshness[ 2 ]
         
     # Get everyday at this time
-    log( repr( __addon__.getSetting( "timeLimit" ) ) )
     for x in range( 0, int( __addon__.getSetting( "timeLimit" ) ) + 1, 1 ):
         datetimeStart = str( datetime.now() - timedelta( days = x, hours = int( __addon__.getSetting( "hoursNow" ) ) ) )
         datetimeEnd = str( datetime.now() - timedelta( days = x, hours = -int( __addon__.getSetting( "hoursNow" ) ) ) )
         timeQuery = "datetime BETWEEN '%s' AND '%s'" %( str( datetime.now() - timedelta( days = x, hours = int( __addon__.getSetting( "hoursNow" ) ) ) ), str( datetime.now() - timedelta( days = x, hours = -int( __addon__.getSetting( "hoursNow" ) ) ) ) )
-        log( "%d: %s - %s" %( x, datetimeStart, datetimeEnd ) )
         sucess = False
         while sucess == False:
             try:
@@ -197,11 +193,9 @@ def getFromDatabase( connection, type ):
         freshness[ 2 ] += moreFreshness[ 2 ]
         
     # Get all
-    log( repr( __addon__.getSetting( "allLimit" ) ) )
     datetimeStart = str( datetime.now() - timedelta( days = int( __addon__.getSetting( "allLimit" ) ) ) )
     datetimeEnd = str( datetime.now() )
     timeQuery = "datetime BETWEEN '%s' AND '%s'" %( str( datetime.now() - timedelta( days = int( __addon__.getSetting( "allLimit" ) ) ) ), str( datetime.now() ) )
-    log( "%d: %s - %s" %( x, datetimeStart, datetimeEnd ) )
     sucess = False
     while sucess == False:
         try:
@@ -214,9 +208,7 @@ def getFromDatabase( connection, type ):
     freshness[ 0 ] += moreFreshness[ 0 ]
     freshness[ 1 ] += moreFreshness[ 1 ]
     freshness[ 2 ] += moreFreshness[ 2 ]
-    
-    log( repr( combined ) )
-    
+        
     return combined, freshness
 
         

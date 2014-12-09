@@ -75,7 +75,13 @@ class Main:
         
         thread.start_new_thread( self._player_daemon, () )
         thread.start_new_thread( self._socket_daemon, () )
-        self._daemon()            
+        self._daemon()
+        
+        # Clear xbmcgui items
+        self.movieWidget = None
+        self.episodeWidget = None
+        self.albumWidget = None
+        self.pvrWidget = None
             
     def _init_vars(self):
         self.WINDOW = xbmcgui.Window(10000)
@@ -93,6 +99,10 @@ class Main:
         self.albumLastUpdated = 0
         self.pvrLastUpdated = 0
         
+        self.lastMovieHabits = None
+        self.lastEpisodeHabits = None
+        self.lastAlbumHabits = None
+        
         # Create a socket
         self.serversocket = socket.socket( socket.AF_INET, socket.SOCK_STREAM )
         
@@ -102,12 +112,16 @@ class Main:
         # Create a connection to the database
         self.connectionWrite = sql.connect()
         
-        # Create a player monitor
-        self.Player = Widgets_Player(action = self.mediaStarted, ended = self.mediaEnded)
-        
+        # Create a player and monitor object
+        self.Player = Widgets_Player( action = self.mediaStarted, ended = self.mediaEnded )
+        self.Monitor = Widgets_Monitor( action = self.libraryUpdated )
+
         # Loop
         while not xbmc.abortRequested and running == True:
             xbmc.sleep( 1000 )
+            
+        del self.Player
+        del self.Monitor
                     
     def _socket_daemon( self ):
         # This is the daemon which will send back any requested widget
@@ -185,6 +199,12 @@ class Main:
                 count += 1
                 if count >= 60 or self.movieWidget is None or self.episodeWidget is None or self.albumWidget is None or self.pvrWidget is None:
                     nextWidget = self._getNextWidget()
+
+                    # If no media playing, clear last played
+                    if not xbmc.Player().isPlaying():
+                        library.lastplayedType = None
+                        library.lastplayedID = None
+
                     if nextWidget is not None:
                         log( "### Starting to get widget " + nextWidget )
                         # If live tv is playing, call the mediaStarted function in case channel has changed
@@ -193,6 +213,22 @@ class Main:
                             
                         # Get the users habits out of the database
                         habits, freshness = sql.getFromDatabase( self.connectionRead, nextWidget )
+                        
+                        if nextWidget == "movie" and habits == self.lastMovieHabits:
+                            log( "Not updating widgets" )
+                            self.movieLastUpdated = strftime( "%Y%m%d%H%M%S",gmtime() )
+                            count = 0
+                            continue
+                        if nextWidget == "episode" and habits == self.lastEpisodeHabits:
+                            log( "Not updating widgets" )
+                            self.episodeLastUpdated = strftime( "%Y%m%d%H%M%S",gmtime() )
+                            count = 0
+                            continue
+                        if nextWidget == "album" and habits == self.lastAlbumHabits:
+                            log( "Not updating widgets" )
+                            self.albumLastUpdated = strftime( "%Y%m%d%H%M%S",gmtime() )
+                            count = 0
+                            continue
                         
                         # Pause briefly, and again check that abortRequested hasn't been called
                         xbmc.sleep( 100 )
@@ -218,11 +254,13 @@ class Main:
                             log( "### Saving movie widget" )
                             self.movieWidget = listitems
                             self.movieLastUpdated = strftime( "%Y%m%d%H%M%S",gmtime() )
+                            self.lastMovieHabits = habits
                             self.WINDOW.setProperty( "smartish.movies", self.movieLastUpdated )
                         elif nextWidget == "episode":
                             log( "### Saving episode widget" )
                             self.episodeWidget = listitems
                             self.episodeLastUpdated = strftime( "%Y%m%d%H%M%S",gmtime() )
+                            self.lastEpisodeHabits = habits
                             self.WINDOW.setProperty( "smartish.episodes", self.episodeLastUpdated )
                         elif nextWidget == "pvr":
                             log( "### Saving PVR widget" )
@@ -233,15 +271,11 @@ class Main:
                             log( "### Saving album widget" )
                             self.albumWidget = listitems
                             self.albumLastUpdated = strftime( "%Y%m%d%H%M%S",gmtime() )
+                            self.lastAlbumHabits = habits
                             self.WINDOW.setProperty( "smartish.albums", self.albumLastUpdated )
                     
                     # Reset counter and update widget type
                     count = 0
-                    
-                    # If no media playing, clear last played
-                    if not xbmc.Player().isPlaying():
-                        library.lastplayedType = None
-                        library.lastplayedID = None
                     
             xbmc.sleep( 1000 )
             
@@ -554,7 +588,29 @@ class Main:
             sql.addToDatabase( self.connectionWrite, dateandtime, time, day, "album", "genre", genre )
         
         for mood in album_query[ "mood" ]:
-            sql.addToDatabase( self.connectionWrite, dateandtime, time, day, "album", "mood", mood )        
+            sql.addToDatabase( self.connectionWrite, dateandtime, time, day, "album", "mood", mood )
+
+    def libraryUpdated( self, database ):
+        if database == "video":
+            # Clear movie and episode habits, and set them both to be updated
+            log( "### Setting movies and episodes to be updated" )
+            lastMovieHabits = None
+            lastEpisodeHabits = None
+            movieLastUpdated = 0
+            episodeLastUpdated = 0
+        if database == "music":
+            # Clear album habits, and set to be updated
+            log( "### Setting albums to be updated" )
+            lastAlbumHabits = None
+            albumLastUpdated = 0
+        
+class Widgets_Monitor(xbmc.Monitor):
+    def __init__(self, *args, **kwargs):
+        xbmc.Monitor.__init__(self)
+        self.action = kwargs[ "action" ]
+
+    def onDatabaseUpdated(self, database):
+        self.action( database )
         
 class Widgets_Player(xbmc.Player):
     def __init__(self, *args, **kwargs):

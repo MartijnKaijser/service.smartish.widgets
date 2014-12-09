@@ -3,6 +3,7 @@ import os, sys
 from datetime import datetime, timedelta
 import xbmc, xbmcgui, xbmcvfs, urllib
 from traceback import print_exc
+import hashlib
     
 if sys.version_info < (2, 7):
     import simplejson
@@ -93,7 +94,7 @@ def getMedia( mediaType, habits, freshness ):
                             
     elif mediaType == "movie":
         # Perform a JSON to get all the movies
-        json_string = '{"jsonrpc": "2.0",  "id": 1, "method": "VideoLibrary.GetMovies", "params": {"properties": ["title", "originaltitle", "votes", "playcount", "year", "genre", "studio", "country", "tagline", "plot", "runtime", "file", "plotoutline", "lastplayed", "trailer", "rating", "resume", "art", "streamdetails", "mpaa", "director", "writer", "cast", "dateadded", "tag", "imdbnumber" ] }}'
+        json_string = '{"jsonrpc": "2.0",  "id": 1, "method": "VideoLibrary.GetMovies", "params": {"properties": ["title", "originaltitle", "votes", "playcount", "year", "genre", "studio", "country", "tagline", "plot", "runtime", "file", "plotoutline", "lastplayed", "trailer", "rating", "resume", "art", "streamdetails", "mpaa", "director", "writer", "cast", "dateadded", "tag", "imdbnumber" ] }, "filter": {"field": "playcount", "operator": "lessthan", "value": "1"} }'
         json_query = xbmc.executeJSONRPC( '%s' %( json_string ) )
         json_query = unicode(json_query, 'utf-8', errors='ignore')
         json_query = simplejson.loads(json_query)
@@ -111,6 +112,7 @@ def getMedia( mediaType, habits, freshness ):
         json_query = simplejson.loads(json_query)
         if json_query.has_key('result') and json_query['result'].has_key('tvshows'):
             for item in json_query['result']['tvshows']:
+                #log( repr( item ) )
                 processTvshows( habits, items, weighted, logged, item, freshness )
                 if xbmc.abortRequested:
                     return None, None
@@ -259,11 +261,10 @@ def processRecorded( habits, recordedshows, weighted, item, freshness ):
                 
     weight += int( freshnessAddition )
         
-    strWeight = "%04d" % weight
-    if strWeight not in weighted.keys():
-        weighted[ strWeight ] = [ "R" + str( item[ "recordingid" ] ) ]
+    if weight not in weighted.keys():
+        weighted[ weight ] = [ "R" + str( item[ "recordingid" ] ) ]
     else:
-        weighted[ strWeight ].append( "R" + str( item[ "recordingid" ] ) )
+        weighted[ weight ].append( "R" + str( item[ "recordingid" ] ) )
     
 def processLive( habits, liveshows, weighted, item, freshness, addition = "L" ):
     # If there is no 'broadcastnow' or 'broadcastnext', we aint gonna process is
@@ -329,11 +330,10 @@ def processLive( habits, liveshows, weighted, item, freshness, addition = "L" ):
                 
     weight += int( freshnessAddition )
         
-    strWeight = "%04d" % weight
-    if strWeight not in weighted.keys():
-        weighted[ strWeight ] = [ addition + str( item[ "channelid" ] ) ]
+    if weight not in weighted.keys():
+        weighted[ weight ] = [ addition + str( item[ "channelid" ] ) ]
     else:
-        weighted[ strWeight ].append( addition + str( item[ "channelid" ] ) )
+        weighted[ weight ].append( addition + str( item[ "channelid" ] ) )
     
 def processMovie( habits, movies, weighted, item, freshness ):
     # If this movie has already been processed, pass
@@ -447,7 +447,6 @@ def processMovie( habits, movies, weighted, item, freshness ):
                 
     weight += int( freshnessAddition )
         
-    strWeight = "%04d" % weight
     if weight not in weighted.keys():
         weighted[ weight ] = [ item[ "movieid" ] ]
     else:
@@ -460,6 +459,10 @@ def processTvshows( habits, episodes, weighted, logged, item, freshness ):
     if item['tvshowid'] in logged.keys():
         return
     logged[ item[ "tvshowid" ] ] = "Processed"
+    
+    # If the show has been watched, do no more
+    if item[ "watchedepisodes" ] == item[ "episode" ]:
+        return
     
     # Get additional TMDB information
     keywords, related = sql.getTMDBExtras( "episode", item[ "imdbnumber" ], item[ "label" ], item[ "premiered" ][:-6] )
@@ -526,9 +529,12 @@ def processTvshows( habits, episodes, weighted, logged, item, freshness ):
     newestDate = "0"
     playedDate = "0"
     addNextUnwatched = True
+    
+    # Get hash            
+    itemHash = hashlib.md5( simplejson.dumps( item ) ).hexdigest()
 
     # If we already have the episode information...
-    if item[ "tvshowid" ] in tvshowInformation.keys() and tvshowInformation[ item[ "tvshowid" ] ] == item:
+    if item[ "tvshowid" ] in tvshowInformation.keys() and tvshowInformation[ item[ "tvshowid" ] ] == itemHash:
         # Retrieve previously saved next and newest episodes
         nextUnwatched = tvshowNextUnwatched[ item[ "tvshowid" ] ]
         newest = tvshowNewest[ item[ "tvshowid" ] ]
@@ -562,7 +568,7 @@ def processTvshows( habits, episodes, weighted, logged, item, freshness ):
                     addNextUnwatched = True
                     
             # Save these for future runs
-            tvshowInformation[ item[ "tvshowid" ] ] = item
+            tvshowInformation[ item[ "tvshowid" ] ] = itemHash
             tvshowNextUnwatched[ item[ "tvshowid" ] ] = nextUnwatched
             tvshowNewest[ item[ "tvshowid" ] ] = newest
         else:
@@ -580,11 +586,10 @@ def processTvshows( habits, episodes, weighted, logged, item, freshness ):
     if nextUnwatched is not None:
         episodes[ nextUnwatched[ 'episodeid' ] ] = nextUnwatched
         
-        strWeight = "%04d" % ( weight + 10 )
-        if strWeight not in weighted.keys():
-            weighted[ strWeight ] = [ nextUnwatched[ "episodeid" ] ]
+        if weight not in weighted.keys():
+            weighted[ weight ] = [ nextUnwatched[ "episodeid" ] ]
         else:
-            weighted[ strWeight ].append( nextUnwatched[ "episodeid" ] )
+            weighted[ weight ].append( nextUnwatched[ "episodeid" ] )
             
     # Save the newest episode, with additional weighting on its new-ness
     if newest is not None:
@@ -611,11 +616,10 @@ def processTvshows( habits, episodes, weighted, logged, item, freshness ):
         
         episodes[ newest[ 'episodeid' ] ] = newest
         
-        strWeight = "%04d" % int( weight + freshnessAddition )
-        if strWeight not in weighted.keys():
-            weighted[ strWeight ] = [ newest[ "episodeid" ] ]
+        if weight not in weighted.keys():
+            weighted[ weight ] = [ newest[ "episodeid" ] ]
         else:
-            weighted[ strWeight ].append( newest[ "episodeid" ] )
+            weighted[ weight ].append( newest[ "episodeid" ] )
                      
 def processAlbum( habits, albums, weighted, item, freshness ):
     # If this album has already been processed, pass
@@ -671,11 +675,10 @@ def processAlbum( habits, albums, weighted, item, freshness ):
 
             weighting -= keyWeighting[ 1 ]
         
-    strWeight = "%04d" % weight
-    if strWeight not in weighted.keys():
-        weighted[ strWeight ] = [ item[ "albumid" ] ]
+    if weight not in weighted.keys():
+        weighted[ weight ] = [ item[ "albumid" ] ]
     else:
-        weighted[ strWeight ].append( item[ "albumid" ] )
+        weighted[ weight ].append( item[ "albumid" ] )
     
 
                 

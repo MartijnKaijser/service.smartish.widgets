@@ -215,17 +215,17 @@ class Main:
                         habits, freshness = sql.getFromDatabase( self.connectionRead, nextWidget )
                         
                         if nextWidget == "movie" and habits == self.lastMovieHabits:
-                            log( "Not updating widgets" )
+                            log( "### Not updating widget" )
                             self.movieLastUpdated = strftime( "%Y%m%d%H%M%S",gmtime() )
                             count = 0
                             continue
                         if nextWidget == "episode" and habits == self.lastEpisodeHabits:
-                            log( "Not updating widgets" )
+                            log( "### Not updating widget" )
                             self.episodeLastUpdated = strftime( "%Y%m%d%H%M%S",gmtime() )
                             count = 0
                             continue
                         if nextWidget == "album" and habits == self.lastAlbumHabits:
-                            log( "Not updating widgets" )
+                            log( "### Not updating widget" )
                             self.albumLastUpdated = strftime( "%Y%m%d%H%M%S",gmtime() )
                             count = 0
                             continue
@@ -311,6 +311,7 @@ class Main:
             json_query = unicode(json_query, 'utf-8', errors='ignore')
             
             json_query = simplejson.loads(json_query)
+            
             if json_query.has_key( 'result' ):
                 type = json_query[ "result" ][ "item" ][ "type" ]
                 if type == "episode":
@@ -318,26 +319,26 @@ class Main:
                 elif type == "movie":
                     self.movie( json_query[ "result" ][ "item" ] )
                 elif type == "song":
-                    log( "Playing media is a song" )
                     self.song( json_query[ "result" ][ "item" ] )
                 elif type == "channel":
                     # Get details of the current show
-                    live_query = xbmc.executeJSONRPC('{"jsonrpc": "2.0",  "id": 1, "method": "PVR.GetChannelDetails", "params": {"channelid": %d, "properties": [ "broadcastnow" ]}}' %( json_query[ "result" ][ "item" ][ "id" ] ) )
+                    live_query = xbmc.executeJSONRPC( '{ "jsonrpc": "2.0",  "id": 1, "method": "PVR.GetBroadcasts", "params": {"channelid": %d, "properties": [ "title", "plot", "plotoutline", "starttime", "endtime", "runtime", "progress", "progresspercentage", "genre", "episodename", "episodenum", "episodepart", "firstaired", "hastimer", "isactive", "parentalrating", "wasactive", "thumbnail" ], "limits": {"end": 1} } }' %( json_query[ "result" ][ "item" ][ "id" ] ) )
+                    #live_query = xbmc.executeJSONRPC('{"jsonrpc": "2.0",  "id": 1, "method": "PVR.GetChannelDetails", "params": {"channelid": %d, "properties": [ "broadcastnow" ]}}' %( json_query[ "result" ][ "item" ][ "id" ] ) )
                     live_query = unicode(live_query, 'utf-8', errors='ignore')
                     live_query = simplejson.loads(live_query)
                     
                     # Check the details we need are actually included:
-                    if live_query.has_key( "result" ) and live_query[ "result" ].has_key( "channeldetails" ) and live_query[ "result" ][ "channeldetails" ].has_key( "broadcastnow" ):
+                    if live_query.has_key( "result" ) and live_query[ "result" ].has_key( "broadcasts" ):
                         if self.playingLiveTV:
                             # Only update if the current show has changed
-                            if not self.lastLiveTVChannel == str( json_query[ "result" ][ "item" ][ "id" ] ) + "|" + live_query[ "result" ][ "channeldetails" ][ "broadcastnow" ][ "starttime" ]:
-                                self.livetv( json_query[ "result" ][ "item" ], live_query[ "result" ][ "channeldetails" ][ "broadcastnow" ], connection )
+                            if not self.lastLiveTVChannel == str( json_query[ "result" ][ "item" ][ "id" ] ) + "|" + live_query[ "result" ][ "broadcasts" ][ 0 ][ "starttime" ]:
+                                self.livetv( json_query[ "result" ][ "item" ], live_query[ "result" ][ "broadcasts" ][ 0 ], connection )
                         else:
-                            self.livetv( json_query[ "result" ][ "item" ], live_query[ "result" ][ "channeldetails" ][ "broadcastnow" ], connection )
+                            self.livetv( json_query[ "result" ][ "item" ], live_query[ "result" ][ "broadcasts" ][ 0 ], connection )
                             
                         # Save the current channel, so we can only update on channel change
                         self.playingLiveTV = True
-                        self.lastLiveTVChannel = str( json_query[ "result" ][ "item" ][ "id" ] ) + "|" + live_query[ "result" ][ "channeldetails" ][ "broadcastnow" ][ "starttime" ]
+                        self.lastLiveTVChannel = str( json_query[ "result" ][ "item" ][ "id" ] ) + "|" + live_query[ "result" ][ "broadcasts" ][ 0 ][ "starttime" ]
                 
                 elif type == "unknown" and "channel" in json_query[ "result" ][ "item"] and json_query[ "result" ][ "item" ][ "channel" ] != "":
                     self.recordedtv( json_query[ "result" ][ "item" ] )
@@ -354,6 +355,7 @@ class Main:
         library.lastplayedType = "movie"
         library.lastplayedID = json_query[ "id" ]
         self.movieLastUpdated = 0
+        self.lastMovieHabits = None
         
         # MPAA
         if json_query[ "mpaa" ] != "":
@@ -422,6 +424,7 @@ class Main:
         library.tvshowNextUnwatched.pop( json_query[ "tvshowid" ], None )
         library.tvshowNewest.pop( json_query[ "tvshowid" ], None )
         self.episodeLastUpdated = 0
+        self.lastEpisodeHabits = None
         
         # TV Show ID
         sql.addToDatabase( self.connectionWrite, dateandtime, time, day, "episode", "tvshowid", json_query[ "tvshowid" ] )
@@ -572,6 +575,7 @@ class Main:
         library.lastplayedType = "album"
         library.lastplayedID = album_query[ "albumid" ]
         self.albumLastUpdated = 0
+        self.lastAlbumHabits = None
         
         for artist in album_query[ "artist" ]:
             sql.addToDatabase( self.connectionWrite, dateandtime, time, day, "album", "artist", artist )
@@ -594,15 +598,14 @@ class Main:
         if database == "video":
             # Clear movie and episode habits, and set them both to be updated
             log( "### Setting movies and episodes to be updated" )
-            lastMovieHabits = None
-            lastEpisodeHabits = None
-            movieLastUpdated = 0
-            episodeLastUpdated = 0
+            self.lastMovieHabits = None
+            self.lastEpisodeHabits = None
+            self.movieLastUpdated = 0
+            self.episodeLastUpdated = 0
         if database == "music":
             # Clear album habits, and set to be updated
-            log( "### Setting albums to be updated" )
-            lastAlbumHabits = None
-            albumLastUpdated = 0
+            self.lastAlbumHabits = None
+            self.albumLastUpdated = 0
         
 class Widgets_Monitor(xbmc.Monitor):
     def __init__(self, *args, **kwargs):

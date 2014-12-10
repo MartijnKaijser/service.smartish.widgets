@@ -88,6 +88,7 @@ def connect( createTable = False ):
             connection.commit()
         
     # Return the database connection
+    c.close()
     return connection
     
 def addToDatabase( connection, dateandtime, time, day, media, type, data ):
@@ -103,6 +104,7 @@ def addToDatabase( connection, dateandtime, time, day, media, type, data ):
             log( "Unable to write to database. Retrying in 1 second" )
             xbmc.sleep( 1000 )
     
+    c.close()
     connection.commit()
     
 def getFromDatabase( connection, type ):
@@ -209,6 +211,7 @@ def getFromDatabase( connection, type ):
     freshness[ 1 ] += moreFreshness[ 1 ]
     freshness[ 2 ] += moreFreshness[ 2 ]
         
+    c.close()
     return combined, freshness
 
         
@@ -424,6 +427,8 @@ def getTMDBExtras( type, itemID, name, year ):
         except:
             log( "Unable to read from database. Retrying in 1 second" )
             xbmc.sleep( 1000 )
+            
+    c.close()
     
     keywords = []
     related = []
@@ -520,7 +525,7 @@ def getTMDBExtras( type, itemID, name, year ):
         return( [], [] )
     
     # If we got extra data, save it to the database
-    
+    c = connection.cursor()
     sucess = False
     while sucess == False:
         try:
@@ -558,4 +563,5 @@ def getTMDBExtras( type, itemID, name, year ):
             xbmc.sleep( 1000 )
 
     xbmc.sleep( 300 )
+    c.close()
     return( keywords, related )

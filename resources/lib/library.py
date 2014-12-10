@@ -21,6 +21,7 @@ __datapathalt__  = os.path.join( "special://profile/", "addon_data", __addonid__
 __skinpath__     = xbmc.translatePath( "special://skin/shortcuts/" ).decode('utf-8')
 __xbmcversion__  = xbmc.getInfoLabel( "System.BuildVersion" ).split(".")[0]
 __defaultpath__  = xbmc.translatePath( os.path.join( __cwd__, 'resources', 'shortcuts').encode("utf-8") ).decode("utf-8")
+__xbmcversion__  = xbmc.getInfoLabel( "System.BuildVersion" ).split(".")[0]
 
 # Used to make sure we don't display currently playing
 lastplayedType = None
@@ -66,12 +67,17 @@ def getMedia( mediaType, habits, freshness ):
         if json_query.has_key('result') and json_query['result'].has_key('channelgroups'):
             for group in json_query['result']['channelgroups']:
                 # Perform a JSON query to get all channels
-                json_query = xbmc.executeJSONRPC('{"jsonrpc": "2.0",  "id": 1, "method": "PVR.GetChannels", "params": {"channelgroupid": %d, "properties": [ "thumbnail", "channeltype", "hidden", "locked", "channel", "lastplayed", "broadcastnow", "broadcastnext" ]}}' %( group[ "channelgroupid" ] ) )
+                json_query = xbmc.executeJSONRPC('{"jsonrpc": "2.0",  "id": 1, "method": "PVR.GetChannels", "params": {"channelgroupid": %d, "properties": [ "thumbnail", "channeltype", "hidden", "locked", "channel", "lastplayed" ]}}' %( group[ "channelgroupid" ] ) )
                 json_query = unicode(json_query, 'utf-8', errors='ignore')
                 json_query = simplejson.loads(json_query)
                 if json_query.has_key('result') and json_query['result'].has_key('channels'):
                     for item in json_query['result']['channels']:
-                        processLive( habits, items, weighted, item, freshness )
+                        # Get next two shows for the channel
+                        json_query = xbmc.executeJSONRPC( '{ "jsonrpc": "2.0",  "id": 1, "method": "PVR.GetBroadcasts", "params": {"channelid": %d, "properties": [ "title", "plot", "plotoutline", "starttime", "endtime", "runtime", "progress", "progresspercentage", "genre", "episodename", "episodenum", "episodepart", "firstaired", "hastimer", "isactive", "parentalrating", "wasactive", "thumbnail" ], "limits": {"end": 2} } }' %( item[ "channelid" ] ) )
+                        json_query = unicode(json_query, 'utf-8', errors='ignore')
+                        json_query = simplejson.loads(json_query)
+                        if json_query.has_key( "result" ) and json_query[ "result" ].has_key( "broadcasts" ):
+                            processLive( habits, items, weighted, item, json_query[ "result" ][ "broadcasts" ], freshness )
                         if xbmc.abortRequested:
                             return None, None
                     
@@ -83,12 +89,16 @@ def getMedia( mediaType, habits, freshness ):
         if json_query.has_key('result') and json_query['result'].has_key('channelgroups'):
             for group in json_query['result']['channelgroups']:
                 # Perform a JSON query to get all channels
-                json_query = xbmc.executeJSONRPC('{"jsonrpc": "2.0",  "id": 1, "method": "PVR.GetChannels", "params": {"channelgroupid": %d, "properties": [ "thumbnail", "channeltype", "hidden", "locked", "channel", "lastplayed", "broadcastnow", "broadcastnext" ]}}' %( group[ "channelgroupid" ] ) )
+                json_query = xbmc.executeJSONRPC('{"jsonrpc": "2.0",  "id": 1, "method": "PVR.GetChannels", "params": {"channelgroupid": %d, "properties": [ "thumbnail", "channeltype", "hidden", "locked", "channel", "lastplayed" ]}}' %( group[ "channelgroupid" ] ) )
                 json_query = unicode(json_query, 'utf-8', errors='ignore')
                 json_query = simplejson.loads(json_query)
                 if json_query.has_key('result') and json_query['result'].has_key('channels'):
                     for item in json_query['result']['channels']:
-                        processLive( habits, items, weighted, item, freshness, "A" )
+                        json_query = xbmc.executeJSONRPC( '{ "jsonrpc": "2.0",  "id": 1, "method": "PVR.GetBroadcasts", "params": {"channelid": %d, "properties": [ "title", "plot", "plotoutline", "starttime", "endtime", "runtime", "progress", "progresspercentage", "genre", "episodename", "episodenum", "episodepart", "firstaired", "hastimer", "isactive", "parentalrating", "wasactive", "thumbnail" ], "limits": {"end": 2} } }' %( item[ "channelid" ] ) )
+                        json_query = unicode(json_query, 'utf-8', errors='ignore')
+                        json_query = simplejson.loads(json_query)
+                        if json_query.has_key( "result" ) and json_query[ "result" ].has_key( "broadcasts" ):
+                            processLive( habits, items, weighted, item, json_query[ "result" ][ "broadcasts" ], freshness )
                         if xbmc.abortRequested:
                             return None, None
                             
@@ -112,7 +122,6 @@ def getMedia( mediaType, habits, freshness ):
         json_query = simplejson.loads(json_query)
         if json_query.has_key('result') and json_query['result'].has_key('tvshows'):
             for item in json_query['result']['tvshows']:
-                #log( repr( item ) )
                 processTvshows( habits, items, weighted, logged, item, freshness )
                 if xbmc.abortRequested:
                     return None, None
@@ -266,10 +275,8 @@ def processRecorded( habits, recordedshows, weighted, item, freshness ):
     else:
         weighted[ weight ].append( "R" + str( item[ "recordingid" ] ) )
     
-def processLive( habits, liveshows, weighted, item, freshness, addition = "L" ):
+def processLive( habits, liveshows, weighted, item, nownext, freshness, addition = "L" ):
     # If there is no 'broadcastnow' or 'broadcastnext', we aint gonna process is
-    if "broadcastnow" not in item.keys() and "broadcastnext" not in item.keys():
-        return
     
     # If this show has already been processed, pass
     if addition + str( item['channelid'] ) in liveshows.keys():
@@ -283,19 +290,30 @@ def processLive( habits, liveshows, weighted, item, freshness, addition = "L" ):
         if int( item[ "channelid" ] ) == int( lastplayedID ):
             return
             
+    showtoWeight = nownext[ 0 ]
+    
+    # Work out percent complete (json value appears incorrect    
+    showLength = datetime.strptime( showtoWeight[ "endtime" ], "%Y-%m-%d %H:%M:%S" ) - datetime.strptime( showtoWeight[ "starttime" ], "%Y-%m-%d %H:%M:%S" )
+    showLength = showLength.seconds / 60.0
+    
+    timeStarted = datetime.now() - datetime.strptime( showtoWeight[ "starttime" ], "%Y-%m-%d %H:%M:%S" )
+    minutesRun = timeStarted.seconds / 60.0
+    
+    percentRun = int( ( minutesRun / showLength ) * 100.0 )
+            
     # If progresspercentage is over 70%, and the next program starts within 30 minutes
-    # we'll base on the broadcastnext, not the broadcastnow
-    if "broadcastnow" in item.keys():
-        showtoWeight = item[ "broadcastnow" ]
-        if showtoWeight[ "progresspercentage" ] > 70 and "broadcastnext" in item.keys():
-            # Convert the starttime of the next show to a DateTime object
-            nextStart = datetime.strptime( item[ "broadcastnext" ][ "starttime" ], "%Y-%m-%d %H:%M:%S" ) - datetime.now()
-            nextMinutes = nextStart.days * 1440 + nextStart.seconds // 60
-            log( "Next show starts in " + repr( nextMinutes ) )
-            if nextMinutes < 30:
-                showtoWeight = item[ "broadcastnext" ]
-    else:
-        showtoWeight = item[ "broadcastnext" ]
+    # we'll base on the next show, not the current one
+    if percentRun > 80 and len( nownext ) == 2:
+        # Convert the starttime of the next show to a DateTime object
+        nextStart = datetime.strptime( nownext[ 1 ][ "starttime" ], "%Y-%m-%d %H:%M:%S" ) - datetime.now()
+        nextMinutes = int( nextStart.seconds / 60.0 )
+        if nextMinutes < 30:
+            showtoWeight = nownext[ 1 ]
+    
+    # Add broadcastnow and broadcastnext to item
+    item[ "broadcastnow" ] = nownext[ 0 ]
+    if len( nownext ) == 2:
+        item[ "broadcastnext" ] = nownext[ 1 ]
         
     # Split genres
     genres = []
@@ -851,9 +869,9 @@ def pvr_widget( item, full_liz, count, itemID ):
         liz.setInfo( type="Video", infoLabels={ "Playcount": item['playcount'] } )
         liz.setProperty( "resumetime", str( item[ 'resume' ][ 'position' ] ) )
         liz.setProperty( "totaltime", str( item[ 'resume' ][ 'total' ] ) )
-
+        
         liz.setArt(item['art'])
-        liz.setThumbnailImage(item['art'].get('poster', ''))
+        liz.setThumbnailImage(item['art'].get('thumb', ''))
         liz.setIconImage('DefaultTVShows.png')
         
         liz.setProperty( "ChannelName", item[ "channel" ] )
@@ -865,7 +883,10 @@ def pvr_widget( item, full_liz, count, itemID ):
         
         liz.setProperty( "type", "recorded" )
         
-        path = "plugin://" + __addonid__ + "/?type=playrec&id=" + str( item[ "recordingid" ] )
+        if __xbmcversion__ == "13":
+            path = item[ "streamurl" ]
+        else:
+            path = "plugin://" + __addonid__ + "/?type=playrec&id=" + str( item[ "recordingid" ] )
         full_liz.append( ( path, liz, False ) )
     else:
         # Create a list item for live tv or radio

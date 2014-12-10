@@ -427,8 +427,6 @@ def getTMDBExtras( type, itemID, name, year ):
         except:
             log( "Unable to read from database. Retrying in 1 second" )
             xbmc.sleep( 1000 )
-            
-    c.close()
     
     keywords = []
     related = []
@@ -443,6 +441,8 @@ def getTMDBExtras( type, itemID, name, year ):
         if row[ 0 ] == "Updated":
             retrieved = True
         
+    c.close()
+    
     if retrieved:
         return( keywords, related )
         

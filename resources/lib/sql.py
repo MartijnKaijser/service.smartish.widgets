@@ -1,7 +1,7 @@
 # coding=utf-8
 import os, sys
 from datetime import datetime, timedelta
-import xbmc, xbmcgui, xbmcvfs, urllib
+import xbmc, xbmcgui, xbmcaddon, xbmcvfs, urllib
 from traceback import print_exc
     
 import sqlite3
@@ -9,9 +9,9 @@ import tmdb
 
 import cPickle as pickle
 
-__addon__        = sys.modules[ "__main__" ].__addon__
-__addonid__      = sys.modules[ "__main__" ].__addonid__
-__addonversion__ = sys.modules[ "__main__" ].__addonversion__
+__addon__        = xbmcaddon.Addon()
+__addonid__      = __addon__.getAddonInfo('id')
+__addonversion__ = __addon__.getAddonInfo('version')
 __cwd__          = __addon__.getAddonInfo('path').decode("utf-8")
 __datapath__     = os.path.join( xbmc.translatePath( "special://profile/addon_data/" ).decode('utf-8'), __addonid__ )
 __datapathalt__  = os.path.join( "special://profile/", "addon_data", __addonid__ )

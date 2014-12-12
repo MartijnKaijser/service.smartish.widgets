@@ -140,78 +140,64 @@ def getMedia( mediaType, habits, freshness ):
 
     return weighted, items
     
-def getWeighting( type, key, count ):
+def getWeighting( type, key ):
     weighting = 0
-    
-    # Get how many habits we're looking at
-    numHabits = float( __addon__.getSetting( "habitLimit" ) ) / 100.0
     
     # Retrieve the weighting the user has given the key
     if type == "movies":
         if key == "mpaa":
-            weighting = numHabits * float( __addon__.getSetting( "movieRating" ) )
+            weighting = float( __addon__.getSetting( "movieRating" ) )
         elif key == "tag":
-            weighting = numHabits * float( __addon__.getSetting( "movieTag" ) )
+            weighting = float( __addon__.getSetting( "movieTag" ) )
         elif key == "director":
-            weighting = numHabits * float( __addon__.getSetting( "movieDirector" ) )
+            weighting = float( __addon__.getSetting( "movieDirector" ) )
         elif key == "writer":
-            weighting = numHabits * float( __addon__.getSetting( "movieWriter" ) )
+            weighting = float( __addon__.getSetting( "movieWriter" ) )
         elif key == "studio":
-            weighting = numHabits * float( __addon__.getSetting( "movieStudio" ) )
+            weighting = float( __addon__.getSetting( "movieStudio" ) )
         elif key == "genre":
-            weighting = numHabits * float( __addon__.getSetting( "movieGenre" ) )
+            weighting = float( __addon__.getSetting( "movieGenre" ) )
         elif key == "actor":
-            weighting = numHabits * float( __addon__.getSetting( "movieActor" ) )
+            weighting = float( __addon__.getSetting( "movieActor" ) )
         elif key == "keyword":
-            weighting = numHabits * float( __addon__.getSetting( "movieKeyword" ) )
+            weighting = float( __addon__.getSetting( "movieKeyword" ) )
         elif key == "related":
-            weighting = numHabits * float( __addon__.getSetting( "movieRelated" ) )
-        else:
-            weighting = numHabits * 50.0
+            weighting = float( __addon__.getSetting( "movieRelated" ) )
     if type == "episodes":
         if key == "mpaa":
-            weighting = numHabits * float( __addon__.getSetting( "tvRating" ) )
+            weighting = float( __addon__.getSetting( "tvRating" ) )
         elif key == "tag":
-            weighting = numHabits * float( __addon__.getSetting( "tvTag" ) )
+            weighting = float( __addon__.getSetting( "tvTag" ) )
         elif key == "studio":
-            weighting = numHabits * float( __addon__.getSetting( "tvStudio" ) )
+            weighting = float( __addon__.getSetting( "tvStudio" ) )
         elif key == "genre":
-            weighting = numHabits * float( __addon__.getSetting( "tvGenre" ) )
+            weighting = float( __addon__.getSetting( "tvGenre" ) )
         elif key == "actor":
-            weighting = numHabits * float( __addon__.getSetting( "tvActor" ) )
+            weighting = float( __addon__.getSetting( "tvActor" ) )
         elif key == "keyword":
-            weighting = numHabits * float( __addon__.getSetting( "tvKeyword" ) )
+            weighting = float( __addon__.getSetting( "tvKeyword" ) )
         elif key == "related":
-            weighting = numHabits * float( __addon__.getSetting( "tvRelated" ) )
-        else:
-            weighting = numHabits * 50.0
+            weighting = float( __addon__.getSetting( "tvRelated" ) )
     if type == "album":
         if key == "artist":
-            weighting = numHabits * float( __addon__.getSetting( "albumArtist" ) )
+            weighting = float( __addon__.getSetting( "albumArtist" ) )
         if key == "style":
-            weighting = numHabits * float( __addon__.getSetting( "albumStyle" ) )
+            weighting = float( __addon__.getSetting( "albumStyle" ) )
         if key == "theme":
-            weighting = numHabits * float( __addon__.getSetting( "albumTheme" ) )
+            weighting = float( __addon__.getSetting( "albumTheme" ) )
         if key == "genre":
-            weighting = numHabits * float( __addon__.getSetting( "albumGenre" ) )
+            weighting = float( __addon__.getSetting( "albumGenre" ) )
         if key == "mood":
-            weighting = numHabits * float( __addon__.getSetting( "albumMood" ) )
+            weighting = float( __addon__.getSetting( "albumMood" ) )
         if key == "label":
-            weighting = numHabits * float( __addon__.getSetting( "albumLabel" ) )
+            weighting = float( __addon__.getSetting( "albumLabel" ) )
     if type == "pvr":
         if key == "channel":
-            weighting = numHabits * float( __addon__.getSetting( "pvrChannel" ) )
+            weighting = float( __addon__.getSetting( "pvrChannel" ) )
         if key == "genre":
-            weighting = numHabits * float( __addon__.getSetting( "pvrGenre" ) )
-            
-    # If they've given it no weighting, return now
-    if int( weighting ) == 0:
-        return( 0, 0 )
+            weighting = float( __addon__.getSetting( "pvrGenre" ) )
     
-    # Work out the step
-    step = weighting / count
-    
-    return( weighting * 2, step * 2 )
+    return weighting
 
 def processRecorded( habits, recordedshows, weighted, item, freshness ):
     # If this show has already been processed, pass
@@ -238,23 +224,21 @@ def processRecorded( habits, recordedshows, weighted, item, freshness ):
     
     # Work out the weighting
     weight = 0
+    scores = []
     for key in habits.keys():
-        keyWeighting = getWeighting( "pvr", key, len( habits[ key ] ) )
-        weighting = keyWeighting[ 0 ]
-        for habit in habits[ key ]:          
+        weighting = getWeighting( "pvr", key )
+        for percentage, habit in habits[ key ]:          
             for value in habit:
                 value = value.decode( "utf-8" )
                 if key == "genre":
                     # List
                     for genre in genres:
                         if genre == value:
-                            weight += weighting
+                            weight += ( ( weighting / 100 ) * percentage ) / float( len( genres ) )
                             
                 if key == "channel":
                     if item[ "channel" ] == value:
-                        weight += weighting
-                    
-            weighting -= keyWeighting[ 1 ]
+                        weight += ( weighting / 100 ) * percentage
             
     # Convert endtime to a DateTime object
     dateadded = datetime.now() - datetime.strptime( item[ "endtime" ], "%Y-%m-%d %H:%M:%S" )
@@ -324,29 +308,24 @@ def processLive( habits, liveshows, weighted, item, nownext, freshness, addition
     # Work out the weighting
     weight = 0
     for key in habits.keys():
-        keyWeighting = getWeighting( "pvr", key, len( habits[ key ] ) )
-        weighting = keyWeighting[ 0 ]
-        for habit in habits[ key ]:          
+        weighting = getWeighting( "pvr", key )
+        for percentage, habit in habits[ key ]:          
             for value in habit:
                 value = value.decode( "utf-8" )
                 if key == "genre":
                     # List
                     for genre in genres:
                         if genre == value:
-                            weight += weighting
+                            weight += ( ( weighting / 100 ) * percentage ) / float( len( genres ) )
                             
                 if key == "channel":
                     if item[ "channel" ] == value:
-                        weight += weighting
-                    
-            weighting -= keyWeighting[ 1 ]
+                        weight += ( weighting / 100 ) * percentage
     
     # Add weighting dependant on normality of watching live
     freshnessAddition = 0.00
     if freshness[ 2 ] != 0 and weight != 0:
         freshnessAddition += (weight / 100.00 ) * freshness[ 2 ]
-                
-    weight += int( freshnessAddition )
         
     if weight not in weighted.keys():
         weighted[ weight ] = [ addition + str( item[ "channelid" ] ) ]
@@ -387,69 +366,66 @@ def processMovie( habits, movies, weighted, item, freshness ):
     scores = []
     for key in habits.keys():
         # Get weighting
-        keyWeighting = getWeighting( "movies", key, len( habits[ key ] ) )
-        weighting = keyWeighting[ 0 ]
-        for habit in habits[ key ]:
+        weighting = getWeighting( "movies", key )
+        for percentage, habit in habits[ key ]:
             for value in habit:
                 value = value.decode( "utf-8" )
                 if key == "mpaa":
                     # Check directly
                     if item[ 'mpaa' ] == value:
-                        weight += weighting
-                        scores.append( "%s: %s (%f)" %( key, value, weighting ) )
+                        weight += ( weighting / 100 ) * percentage
+                        scores.append( "%s: %s (%f)" %( key, value, ( weighting / 100 ) * percentage ) )
                         
                 if key == "tag":
                     # List
                     for tag in item[ "tag" ]:
                         if value in tag:
-                            weight += ( weighting / float ( len( item[ "tag" ] ) ) )
-                            scores.append( "%s: %s (%f)" %( key, value, ( weighting / float ( len( item[ "tag" ] ) ) ) ) )
+                            weight += ( ( weighting / 100 ) * percentage ) / float( len( item[ "tag" ] ) )
+                            scores.append( "%s: %s (%f)" %( key, value, ( ( weighting / 100 ) * percentage ) / float( len( item[ "tag" ] ) ) ) )
                             
                 if key == "director":
                     # List
                     for director in item[ "director" ]:
                         if director == value:
-                            weight += ( weighting / float ( len( item[ "director" ] ) ) )
-                            scores.append( "%s: %s (%f)" %( key, value, ( weighting / float ( len( item[ "director" ] ) ) ) ) )
+                            weight += ( ( weighting / 100 ) * percentage ) / float( len( item[ "director" ] ) )
+                            scores.append( "%s: %s (%f)" %( key, value, ( ( weighting / 100 ) * percentage ) / float( len( item[ "director" ] ) ) ) )
                         
                 if key == "writer":
                     # List
                     for writer in item[ "writer" ]:
                         if writer == value:
-                            weight += ( weighting / float ( len( item[ "writer" ] ) ) )
-                            scores.append( "%s: %s (%f)" %( key, value, ( weighting / float ( len( item[ "writer" ] ) ) ) ) )
+                            weight += ( ( weighting / 100 ) * percentage ) / float( len( item[ "writer" ] ) )
+                            scores.append( "%s: %s (%f)" %( key, value, ( ( weighting / 100 ) * percentage ) / float( len( item[ "writer" ] ) ) ) )
                         
                 if key == "studio":
                     # List
                     for studio in item[ "studio" ]:
                         if studio == value:
-                            weight += ( weighting / float ( len( item[ "studio" ] ) ) )
-                            scores.append( "%s: %s (%f)" %( key, value, ( weighting / float ( len( item[ "studio" ] ) ) ) ) )
+                            weight += ( ( weighting / 100 ) * percentage ) / float( len( item[ "studio" ] ) )
+                            scores.append( "%s: %s (%f)" %( key, value, ( ( weighting / 100 ) * percentage ) / float( len( item[ "studio" ] ) ) ) )
                         
                 if key == "genre":
                     # List
                     for genre in item[ "genre" ]:
                         if genre == value:
-                            weight += ( weighting / float ( len( item[ "genre" ] ) ) )
-                            scores.append( "%s: %s (%f)" %( key, value, ( weighting / float ( len( item[ "genre" ] ) ) ) ) )
+                            weight += ( ( weighting / 100 ) * percentage ) / float( len( item[ "genre" ] ) )
+                            scores.append( "%s: %s (%f)" %( key, value, ( ( weighting / 100 ) * percentage ) / float( len( item[ "genre" ] ) ) ) )
                             
                 if key == "actor":
                     for actor in item[ "cast" ]:
                         if actor[ "name" ] == value:
-                            weight += ( weighting / float ( len( item[ "cast" ] ) ) )
-                            scores.append( "%s: %s (%f)" %( key, value, ( weighting / float ( len( item[ "cast" ] ) ) ) ) )
+                            weight += ( ( weighting / 100 ) * percentage ) / float( len( item[ "cast" ] ) )
+                            scores.append( "%s: %s (%f)" %( key, value, ( ( weighting / 100 ) * percentage ) / float( len( item[ "cast" ] ) ) ) )
                 
                 if key == "keyword":
                     if value in keywords:
-                        weight += ( weighting / float ( len( keywords ) ) )
-                        scores.append( "%s: %s (%f)" %( key, value, ( weighting / float ( len( keywords ) ) ) ) )
+                        weight += ( ( weighting / 100 ) * percentage ) / float( len( keywords ) )
+                        scores.append( "%s: %s (%f)" %( key, value, ( ( weighting / 100 ) * percentage ) / float( len( keywords ) ) ) )
                         
                 if key == "related":
                     if value == title.lower():
-                        weight += weighting
-                        scores.append( "%s: %s (%f)" %( key, value, weighting ) )
-
-            weighting -= keyWeighting[ 1 ]
+                        weight += ( weighting / 100 ) * percentage
+                        scores.append( "%s: %s (%f)" %( key, value, ( weighting / 100 ) * percentage ) )
             
     # Convert dateadded to a DateTime object
     dateadded = datetime.now() - datetime.strptime( item[ "dateadded" ], "%Y-%m-%d %H:%M:%S" )
@@ -496,50 +472,45 @@ def processTvshows( habits, episodes, weighted, logged, item, freshness ):
     # Work out the weighting
     weight = 0
     for key in habits.keys():
-        keyWeighting = getWeighting( "episodes", key, len( habits[ key ] ) )
-        weighting = keyWeighting[ 0 ]
-        for habit in habits[ key ]:
+        weighting = getWeighting( "episodes", key )
+        for percentage, habit in habits[ key ]:
             for value in habit:
                 value = value.decode( "utf-8" )
                 if key == "mpaa":
                     # Check directly
                     if item[ 'mpaa' ] == value:
-                        weight += weighting
+                        weight += ( weighting / 100 ) * percentage
                         
                 if key == "tag":
                     # List
                     for tag in item[ "tag" ]:
                         if tag == value:
-                            weight += weighting
+                            weight += ( ( weighting / 100 ) * percentage ) / float( len( item[ "tag" ] ) )
                         
                 if key == "studio":
                     # List
                     for studio in item[ "studio" ]:
                         if studio == value:
-                            weight += weighting
+                            weight += ( ( weighting / 100 ) * percentage ) / float( len( item[ "studio" ] ) )
                         
                 if key == "genre":
                     # List
                     for genre in item[ "genre" ]:
                         if genre == value:
-                            weight += weighting
+                            weight += ( ( weighting / 100 ) * percentage ) / float( len( item[ "genre" ] ) )
                             
                 if key == "actor":
                     for actor in item[ "cast" ]:
                         if actor[ "name" ] == value:
-                            weight += weighting
+                            weight += ( ( weighting / 100 ) * percentage ) / float( len( item[ "cast" ] ) )
                             
                 if key == "keyword":
                     if value in keywords:
-                        weight += weighting
-                        log( "We matched keyword " + value )
+                        weight += ( weighting / 100 ) * percentage
                         
                 if key == "related":
                     if value == title.lower():
-                        weight += weighting
-                        log( "We matched related " + value )
-                        
-            weighting -= keyWeighting[ 1 ]
+                        weight += ( weighting / 100 ) * percentage
             
     # Prepare to get episode information
     nextUnwatched = None
@@ -651,47 +622,44 @@ def processAlbum( habits, albums, weighted, item, freshness ):
     weight = 0
     for key in habits.keys():
         # Get weighting
-        keyWeighting = getWeighting( "album", key, len( habits[ key ] ) )
-        weighting = keyWeighting[ 0 ]
-        for habit in habits[ key ]:
+        weighting = getWeighting( "album", key )
+        for percentage, habit in habits[ key ]:
             for value in habit:
                 value = value.decode( "utf-8" )
                 if key == "label":
                     # Check directly
                     if item[ 'label' ] == value:
-                        weight += weighting
+                        weight += ( weighting / 100 ) * percentage
                         
                 if key == "artist":
                     # List
                     for artist in item[ "artist" ]:
                         if artist == value:
-                            weight += weighting
+                            weight += ( ( weighting / 100 ) * percentage ) / float( len( item[ "artist" ] ) )
                             
                 if key == "style":
                     # List
                     for style in item[ "style" ]:
                         if style == value:
-                            weight += weighting
+                            weight += ( ( weighting / 100 ) * percentage ) / float( len( item[ "style" ] ) )
                         
                 if key == "theme":
                     # List
                     for theme in item[ "theme" ]:
                         if theme == value:
-                            weight += weighting
+                            weight += ( ( weighting / 100 ) * percentage ) / float( len( item[ "theme" ] ) )
                         
                 if key == "mood":
                     # List
                     for mood in item[ "mood" ]:
                         if mood == value:
-                            weight += weighting
+                            weight += ( ( weighting / 100 ) * percentage ) / float( len( item[ "mood" ] ) )
                         
                 if key == "genre":
                     # List
                     for genre in item[ "genre" ]:
                         if genre == value:
-                            weight += weighting
-
-            weighting -= keyWeighting[ 1 ]
+                            weight += ( ( weighting / 100 ) * percentage ) / float( len( item[ "genre" ] ) )
         
     if weight not in weighted.keys():
         weighted[ weight ] = [ item[ "albumid" ] ]

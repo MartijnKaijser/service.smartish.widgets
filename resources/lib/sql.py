@@ -121,44 +121,12 @@ def getFromDatabase( connection, type ):
         
     # Build the order-by part of our query
     orderQuery = "datetime DESC, type"
-    #orderQuery = "type, COUNT(data) DESC"
-    #dayOrder = "type, COUNT(data) DESC"
-    #timeOrder = "type, COUNT(data) DESC"
-    #allOrder = "type, COUNT(data) DESC"
-    
-    #altOrder = "datetime DESC, type"
-    #if type == "movie":
-    #    if __addon__.getSetting( "movieDayOrder" ) == "true":
-    #        dayOrder = altOrder
-    #    if __addon__.getSetting( "movieTimeOrder" ) == "true":
-    #        timeOrder = altOrder
-    #    if __addon__.getSetting( "movieAllOrder" ) == "true":
-    #        allOrder = altOrder
-    #elif type == "episode":
-    #    if __addon__.getSetting( "tvDayOrder" ) == "true":
-    #        dayOrder = altOrder
-    #    if __addon__.getSetting( "tvTimeOrder" ) == "true":
-    #        timeOrder = altOrder
-    #    if __addon__.getSetting( "tvAllOrder" ) == "true":
-    #        allOrder = altOrder
-    #elif type == "album":
-    #    if __addon__.getSetting( "albumDayOrder" ) == "true":
-    #        dayOrder = altOrder
-    #    if __addon__.getSetting( "albumTimeOrder" ) == "true":
-    #        timeOrder = altOrder
-    #    if __addon__.getSetting( "albumAllOrder" ) == "true":
-    #        allOrder = altOrder
-    #elif type == "pvr":
-    #    if __addon__.getSetting( "pvrDayOrder" ) == "true":
-    #        dayOrder = altOrder
-    #    if __addon__.getSetting( "pvrTimeOrder" ) == "true":
-    #        timeOrder = altOrder
-    #    if __addon__.getSetting( "pvrAllOrder" ) == "true":
-    #        allOrder = altOrder
     
     freshness = [ 0, 0, 0 ]
-            
+    
     # Get weekdays at this time
+    weight = 100 # 100 - 60
+    weightChange = ( ( int( __addon__.getSetting( "dayLimit" ) ) / 7 ) / 40.0 ) * 100
     for x in range( 0, int( __addon__.getSetting( "dayLimit" ) ) + 1, 7 ):
         datetimeStart = str( datetime.now() - timedelta( days = x, hours = int( __addon__.getSetting( "hoursNow" ) ) ) )
         datetimeEnd = str( datetime.now() - timedelta( days = x, hours = -int( __addon__.getSetting( "hoursNow" ) ) ) )
@@ -171,12 +139,15 @@ def getFromDatabase( connection, type ):
             except:
                 log( "Unable to read from database. Retrying in 1 second" )
                 xbmc.sleep( 1000 )
-        moreFreshness = combineDatabaseResults( combined, result, float( __addon__.getSetting( "dayRecent" ) ), False )
+        moreFreshness = combineDatabaseResults( combined, result, float( __addon__.getSetting( "dayRecent" ) ), weight, weightChange, False )
         freshness[ 0 ] += moreFreshness[ 0 ]
         freshness[ 1 ] += moreFreshness[ 1 ]
         freshness[ 2 ] += moreFreshness[ 2 ]
+        weight = weight - weightChange
         
     # Get everyday at this time
+    weight = 60 # 60 - 30
+    weightChange = int( __addon__.getSetting( "timeLimit" ) ) / 30.0
     for x in range( 0, int( __addon__.getSetting( "timeLimit" ) ) + 1, 1 ):
         datetimeStart = str( datetime.now() - timedelta( days = x, hours = int( __addon__.getSetting( "hoursNow" ) ) ) )
         datetimeEnd = str( datetime.now() - timedelta( days = x, hours = -int( __addon__.getSetting( "hoursNow" ) ) ) )
@@ -189,12 +160,14 @@ def getFromDatabase( connection, type ):
             except:
                 log( "Unable to read from database. Retrying in 1 second" )
                 xbmc.sleep( 1000 )
-        moreFreshness = combineDatabaseResults( combined, result, float( __addon__.getSetting( "timeRecent" ) ), False )
+        moreFreshness = combineDatabaseResults( combined, result, float( __addon__.getSetting( "timeRecent" ) ), weight, weightChange, False )
         freshness[ 0 ] += moreFreshness[ 0 ]
         freshness[ 1 ] += moreFreshness[ 1 ]
         freshness[ 2 ] += moreFreshness[ 2 ]
+        weight = weight - weightChange
         
     # Get all
+    weight = 30 # 30 - 10
     datetimeStart = str( datetime.now() - timedelta( days = int( __addon__.getSetting( "allLimit" ) ) ) )
     datetimeEnd = str( datetime.now() )
     timeQuery = "datetime BETWEEN '%s' AND '%s'" %( str( datetime.now() - timedelta( days = int( __addon__.getSetting( "allLimit" ) ) ) ), str( datetime.now() ) )
@@ -206,79 +179,15 @@ def getFromDatabase( connection, type ):
         except:
             log( "Unable to read from database. Retrying in 1 second" )
             xbmc.sleep( 1000 )
-    moreFreshness = combineDatabaseResults( combined, result, float( __addon__.getSetting( "timeRecent" ) ), False )
+    moreFreshness = combineDatabaseResults( combined, result, float( __addon__.getSetting( "timeRecent" ) ), weight, 20, False )
     freshness[ 0 ] += moreFreshness[ 0 ]
     freshness[ 1 ] += moreFreshness[ 1 ]
     freshness[ 2 ] += moreFreshness[ 2 ]
-        
+    
     c.close()
     return combined, freshness
-
-        
-    # Build the time-limit part of our query
-    episodeLimit = "datetime > '%s'" % str( datetime.now() - timedelta( hours = int( __addon__.getSetting( "hoursNow" ) ) ) )
-    dayLimit = "datetime > '%s'" % str( datetime.now() - timedelta( days = int( __addon__.getSetting( "dayLimit" ) ) + 2 ) )
-    timeLimit = "datetime > '%s'" % str( datetime.now() - timedelta( days = int( __addon__.getSetting( "timeLimit" ) ) ) - timedelta( hours = 12 ) )
-    allLimit = "datetime > '%s'" % str( datetime.now() - timedelta( days = int( __addon__.getSetting( "allLimit" ) ) ) - timedelta( hours = 12 ) )
-        
-    timeNow = datetime.now()
     
-    # Get datetime objects for now -/+ users choice
-    hourtimeStart = timeNow - timedelta( hours = int( __addon__.getSetting( "hoursNow" ) ) )
-    hourtimeEnd = timeNow + timedelta( hours = int( __addon__.getSetting( "hoursNow" ) ) )
-    
-    # Get time strings
-    hourStart = str( "%02d:%02d" %( hourtimeStart.hour, hourtimeStart.minute ) )
-    hourEnd = str( "%02d:%02d" %( hourtimeEnd.hour, hourtimeEnd.minute ) )
-    
-    log( repr( hourStart ) + " > " + repr( hourEnd ) )
-    
-    # Build our query for everything we do +/- 2 hours daily
-    if hourtimeStart.hour > hourtimeEnd.hour:
-        # Every day
-        timeQuery = "((time BETWEEN '%s' AND '24:00') OR (time BETWEEN '00:00' AND '%s'))" %( hourStart, hourEnd )
-        
-        # Just today
-        dayQuery = "((day = %f AND time >= '%s') OR (day = %f AND time <= '%s' ))" %(hourtimeStart.weekday(), hourStart, hourtimeEnd.weekday(), hourEnd)
-    else:
-        # Every day
-        timeQuery = "(time BETWEEN '%s' AND '%s')" %( hourStart, hourEnd )
-        
-        # Just today
-        dayQuery = "((time BETWEEN '%s' AND '%s') AND day = %f)" %( hourStart, hourEnd, hourtimeStart.weekday() )
-        
-    # Perform recent episode query
-    if type == "episode":
-        #log( "SELECT *, COUNT(data) FROM habits WHERE %s AND %s GROUP BY type, data ORDER BY %s" %( typeQuery, episodeLimit, dayOrder ) )
-        dayResult = c.execute( "SELECT *, COUNT(data) FROM habits WHERE %s AND %s GROUP BY type, data ORDER BY %s" %( typeQuery, episodeLimit, dayOrder ) )
-        freshness = combineDatabaseResults( combined, dayResult, float( __addon__.getSetting( "dayRecent" ) ), False )
-    
-    # Perform day query
-    #log( "SELECT *, COUNT(data) FROM habits WHERE %s AND %s AND %s GROUP BY type, data ORDER BY %s" %( typeQuery, dayQuery, dayLimit, dayOrder ) )
-    dayResult = c.execute( "SELECT *, COUNT(data) FROM habits WHERE %s AND %s AND %s GROUP BY type, data ORDER BY %s" %( typeQuery, dayQuery, dayLimit, dayOrder ) )
-    freshness = combineDatabaseResults( combined, dayResult, float( __addon__.getSetting( "dayRecent" ) ), False )
-        
-    # Perform time query
-    #log( "SELECT *, COUNT(data) FROM habits WHERE %s AND %s AND %s GROUP BY type, data ORDER BY %s" %( typeQuery, timeQuery, timeLimit, timeOrder ) )
-    timeResult = c.execute( "SELECT *, COUNT(data) FROM habits WHERE %s AND %s AND %s GROUP BY type, data ORDER BY %s" %( typeQuery, timeQuery, timeLimit, timeOrder ) )
-    moreFreshness = combineDatabaseResults( combined, timeResult, float( __addon__.getSetting( "timeRecent" ) ), False )
-    
-    freshness[ 0 ] += moreFreshness[ 0 ]
-    freshness[ 1 ] += moreFreshness[ 1 ]
-    freshness[ 2 ] += moreFreshness[ 2 ]
-    
-    # Perform all query
-    #log( "SELECT *, COUNT(data) FROM habits WHERE %s AND %s GROUP BY type, data ORDER BY %s" %( typeQuery, allLimit, allOrder ) )
-    allResult = c.execute( "SELECT *, COUNT(data) FROM habits WHERE %s AND %s GROUP BY type, data ORDER BY %s" %( typeQuery, allLimit, allOrder ) )
-    moreFreshness = combineDatabaseResults( combined, allResult, float( __addon__.getSetting( "allRecent" ) ) )
-    
-    freshness[ 0 ] += moreFreshness[ 0 ]
-    freshness[ 1 ] += moreFreshness[ 1 ]
-    freshness[ 2 ] += moreFreshness[ 2 ]
-    
-    return combined, freshness
-    
-def combineDatabaseResults( combination, results, freshness, showDebug = False ):
+def combineDatabaseResults( combination, results, freshness, weight = 100, weightChange = 10, showDebug = False ):
     total = 0.00
     fresh = 0.00
     recent = 0.00
@@ -291,6 +200,10 @@ def combineDatabaseResults( combination, results, freshness, showDebug = False )
     lastTag = None
     valueList = []
     
+    uncombined = {}
+    
+    count = -1
+    
     for row in results:
         if showDebug:
             log( repr( row ) )
@@ -298,24 +211,33 @@ def combineDatabaseResults( combination, results, freshness, showDebug = False )
             # If the key doesn't exist in the combination dictionary, add it
             if row[ 5 ] not in combination.keys():
                 combination[ row[ 5 ] ] = []
+            if row[ 5 ] not in uncombined.keys():
+                uncombined[ row[ 5 ] ] = []
                 
             # Check that this value doesn't already exist in the combination dictionary
             foundValue = False
             if len( combination[ row[ 5 ] ] ) != 0:
-                for group in combination[ row[ 5 ] ]:
+                for weighting, group in combination[ row[ 5 ] ]:
                     for value in group:
                         if value == row[ 6 ]:
                             foundValue = True
                             break
-                    if foundValue == True:
-                        break
+                            
+            if len( uncombined[ row[ 5 ] ] ) != 0:
+                for weighting, group in uncombined[ row[ 5 ] ]:
+                    for value in group:
+                        if value == row[ 6 ]:
+                            foundValue = True
+                            break
                         
             # The value wasn't found
             if foundValue == False:
+                if lastDateTime is None or lastDateTime != row[ 1 ]:
+                    count += 1
                 if lastDateTime is None or lastDateTime != row[ 1 ] or lastTag != row[ 5 ]:
                     if lastDateTime is not None and len( valueList ) != 0 and len( combination[ lastTag ] ) < habitLimit:
                         # Add what we've previously saved to the combination dictionary
-                        combination[ lastTag ].append( valueList )
+                        uncombined[ lastTag ].append( ( count, valueList ) )
                     # Reset lastDateTime, lastTag, valueList
                     lastDateTime = row[ 1 ]
                     lastTag = row[ 5 ]
@@ -335,8 +257,19 @@ def combineDatabaseResults( combination, results, freshness, showDebug = False )
     # We've processed all rows, so add the last tag we found
     if lastDateTime is not None and len( valueList ) != 0:
         # Add what we've previously saved to the combination dictionary
-        combination[ lastTag ].append( valueList )
+        uncombined[ lastTag ].append( ( count, valueList ) )
         
+    # Now add to combined database, replacing count with weight
+    count += 1
+    if count != 0:
+        weightChange = float( weightChange ) / count
+    else:
+        weightChange = 0
+        
+    for key in uncombined.keys():
+        for group, group2 in uncombined[ key ]:
+            combination[ key ].append( ( weight - ( weightChange * group ), group2 ) )
+    
     if total != 0:
         if fresh != 0:
             fresh = ( fresh / total ) * freshness
@@ -349,63 +282,6 @@ def combineDatabaseResults( combination, results, freshness, showDebug = False )
     else:
         return [ 0, 0, 0 ]
 
-        
-def combineDatabaseResultsOld( combination, results, freshness, showDebug = False ):
-    total = 0.00
-    fresh = 0.00
-    recent = 0.00
-    live = 0.00
-    recorded = 0.00
-    
-    habitLimit = int( __addon__.getSetting( "habitLimit" ) )
-    
-    lastDateTime = None
-    lastTag = None
-
-    for row in results:
-        if showDebug == True:
-            log( repr( row ) )
-        if row[ 5 ] != "special":
-            if lastDateTime is not None:
-                if row[ 1 ] != lastDateTime or row[ 5 ] != lastTag:
-                    # Changed DateTime or Tag - add what we've got to the combined
-                    pass
-                    
-            # If the key doesn't exist in the combination dictionary, add it
-            if row[ 5 ] not in combination.keys():
-                combination[ row[ 5 ] ] = []
-                
-            # If we have less than the number of habits specified in settings, add this item to the dictionary
-            if len( combination[ row[ 5 ] ] ) < habitLimit:
-                found = False
-                for data in combination[ row[ 5 ] ]:
-                    if data == row[ 6 ]:
-                        found = True
-                        
-                if found == False:
-                    combination[ row[ 5 ] ].append( row[ 6 ] )
-        else:
-            if row[ 6 ] == "playedmedia":
-                total += row[ 7 ]
-            elif row[ 6 ] == "fresh":
-                fresh += row[ 7 ]
-            elif row[ 6 ] == "recentlyadded":
-                recent += row[ 7 ]
-            elif row[ 6 ] == "playedlive":
-                live += row[ 7 ]
-                
-    if total != 0:
-        if fresh != 0:
-            fresh = ( fresh / total ) * freshness
-        if recent != 0:
-            recent = ( recent / total ) * freshness
-        if live != 0:
-            live = ( live / total ) * freshness
-            
-        return[ int( fresh ), int( recent ), int( live ) ]
-    else:
-        return [ 0, 0, 0 ]
-        
 def getTMDBExtras( type, itemID, name, year ):
     connection = connect()
     c = connection.cursor()
@@ -435,9 +311,9 @@ def getTMDBExtras( type, itemID, name, year ):
     
     for row in results:
         if row[ 0 ] == "Keyword":
-            keywords.append( row[ 1 ] )
+            keywords.append( row[ 1 ].decode( "utf-8" ) )
         if row[ 0 ] == "Related":
-            related.append( row[ 1 ] )
+            related.append( row[ 1 ].decode( "utf-8" ) )
         if row[ 0 ] == "Updated":
             retrieved = True
         
